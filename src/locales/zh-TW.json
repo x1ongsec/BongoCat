@@ -180,6 +180,7 @@
         "preference": "偏好設定…",
         "hideCat": "隱藏貓咪",
         "showCat": "顯示貓咪",
+        "alwaysOnTop": "視窗置頂",
         "passThrough": "視窗穿透",
         "windowSize": "視窗尺寸",
         "opacity": "不透明度",

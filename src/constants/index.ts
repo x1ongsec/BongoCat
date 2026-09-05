@@ -6,6 +6,10 @@ export const LISTEN_KEY = {
   SHOW_WINDOW: 'show-window',
   HIDE_WINDOW: 'hide-window',
   DEVICE_CHANGED: 'device-changed',
+  /** 全局设备监听因缺少系统权限而无法启动（macOS 输入监控权限） */
+  DEVICE_LISTEN_PERMISSION: 'device-listen-permission',
+  /** 全局设备监听底层捕获失败 */
+  DEVICE_LISTEN_ERROR: 'device-listen-error',
   UPDATE_APP: 'update-app',
   GAMEPAD_CHANGED: 'gamepad-changed',
   START_MOTION: 'start-motion',

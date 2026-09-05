@@ -61,7 +61,8 @@ export const useCatStore = defineStore('cat', () => {
   const window = reactive<CatStore['window']>({
     visible: true,
     passThrough: false,
-    alwaysOnTop: false,
+    // 默认置顶：宠物窗口应常驻在最上层（配合无边框/窗口化全屏游戏）
+    alwaysOnTop: true,
     scale: 100,
     opacity: 100,
     radius: 0,

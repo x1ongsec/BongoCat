@@ -75,6 +75,13 @@ export function useAppMenu() {
       }),
       PredefinedMenuItem.new({ item: 'Separator' }),
       CheckMenuItem.new({
+        text: t('composables.useAppMenu.labels.alwaysOnTop'),
+        checked: catStore.window.alwaysOnTop,
+        action: () => {
+          catStore.window.alwaysOnTop = !catStore.window.alwaysOnTop
+        },
+      }),
+      CheckMenuItem.new({
         text: t('composables.useAppMenu.labels.passThrough'),
         checked: catStore.window.passThrough,
         action: () => {

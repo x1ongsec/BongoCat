@@ -6,11 +6,15 @@ import { PhysicalSize } from '@tauri-apps/api/dpi'
 import { Menu, PredefinedMenuItem } from '@tauri-apps/api/menu'
 import { sep } from '@tauri-apps/api/path'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { confirm } from '@tauri-apps/plugin-dialog'
 import { exists, readDir } from '@tauri-apps/plugin-fs'
 import { useDebounceFn, useEventListener } from '@vueuse/core'
+import { message } from 'antdv-next'
 import { round } from 'es-toolkit'
 import { nth } from 'es-toolkit/compat'
+import { checkInputMonitoringPermission, requestInputMonitoringPermission } from 'tauri-plugin-macos-permissions-api'
 import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { useAppMenu } from '@/composables/useAppMenu'
 import { useDevice } from '@/composables/useDevice'
@@ -25,7 +29,7 @@ import { useModelStore } from '@/stores/model'
 import { isImage } from '@/utils/is'
 import live2d from '@/utils/live2d'
 import { join } from '@/utils/path'
-import { isWindows } from '@/utils/platform'
+import { isMac, isWindows } from '@/utils/platform'
 import { clearObject } from '@/utils/shared'
 
 const { startListening } = useDevice()
@@ -38,8 +42,17 @@ const generalStore = useGeneralStore()
 const resizing = ref(false)
 const backgroundImagePath = ref<string>()
 const { stickActive } = useGamepad()
+const { t } = useI18n()
 
-onMounted(startListening)
+// 每个运行周期只引导一次，避免重复弹窗
+let permissionPrompted = false
+
+onMounted(() => {
+  startListening()
+
+  // macOS 兜底：即使错过后端发出的权限事件，启动时也主动检查一次输入监控权限
+  handleDevicePermissionDenied()
+})
 
 onUnmounted(handleDestroy)
 
@@ -133,6 +146,41 @@ useTauriListen<MotionInfo>(LISTEN_KEY.START_MOTION, ({ payload }) => {
 
 useTauriListen<number>(LISTEN_KEY.SET_EXPRESSION, ({ payload }) => {
   live2d.setExpression(payload)
+})
+
+/**
+ * macOS 上缺少「输入监控」权限时，系统会静默丢弃所有键盘/鼠标事件（不会报错）。
+ * 后端在启动监听前预检到未授权时会发出该事件，这里引导用户授权。
+ */
+async function handleDevicePermissionDenied() {
+  if (!isMac || permissionPrompted) return
+
+  // 先置位再查询，避免事件回调与启动时主动检查并发导致重复弹窗
+  permissionPrompted = true
+
+  if (await checkInputMonitoringPermission()) return
+
+  const confirmed = await confirm(t('pages.preference.general.hints.inputMonitoringPermissionGuide'), {
+    title: t('pages.preference.general.labels.inputMonitoringPermission'),
+    okLabel: t('pages.preference.general.buttons.openNow'),
+    cancelLabel: t('pages.preference.general.buttons.openLater'),
+    kind: 'warning',
+  })
+
+  if (!confirmed) return
+
+  requestInputMonitoringPermission()
+}
+
+useTauriListen(LISTEN_KEY.DEVICE_LISTEN_PERMISSION, () => {
+  handleDevicePermissionDenied()
+})
+
+useTauriListen<string>(LISTEN_KEY.DEVICE_LISTEN_ERROR, ({ payload }) => {
+  // Windows 上监听失败时，提示以管理员身份运行以便捕获提权进程（如管理员运行的游戏）的输入
+  const extraHint = isWindows ? `\n${t('pages.preference.general.hints.administratorPermission')}` : ''
+
+  message.error(`${payload}${extraHint}`)
 })
 
 function handleMouseDown() {

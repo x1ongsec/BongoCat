@@ -180,6 +180,7 @@
         "preference": "Preferences...",
         "hideCat": "Hide Cat",
         "showCat": "Show Cat",
+        "alwaysOnTop": "Always on Top",
         "passThrough": "Pass Through",
         "windowSize": "Window Size",
         "opacity": "Opacity",
