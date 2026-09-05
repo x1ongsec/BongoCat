@@ -20,13 +20,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # pnpm 10+ 需要 Node >= 22.13（依赖 node:sqlite），这里用 22 而非上游的 20
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
+      # 固定 pnpm 大版本：装 latest 可能漂移到要求更高 Node 的新版（曾导致 pnpm 11 在 Node 20 上崩溃）
       - uses: pnpm/action-setup@v3
         with:
-          version: latest
+          version: 10
 
       - name: Install Rust target
         run: rustup target add ${{ matrix.target }}
