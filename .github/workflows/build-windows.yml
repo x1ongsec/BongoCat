@@ -46,7 +46,12 @@ jobs:
         run: pnpm build:icon
 
       - name: Build Windows app
-        run: pnpm tauri build --target ${{ matrix.target }} --bundles nsis --config '{"bundle":{"createUpdaterArtifacts":false}}'
+        shell: pwsh
+        run: |
+          # 内联 JSON 传给 --config 时，Windows 上 pnpm/cmd 壳会把双引号吞掉导致解析失败，
+          # 这里把 JSON 写成文件，再用绝对路径传入（默认 shell 为 pwsh，Set-Content 无需引号转义）
+          '{"bundle":{"createUpdaterArtifacts":false}}' | Set-Content -Path "$env:GITHUB_WORKSPACE\ci-config.json" -Encoding Ascii
+          pnpm tauri build --target ${{ matrix.target }} --bundles nsis --config "$env:GITHUB_WORKSPACE\ci-config.json"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
