@@ -1,0 +1,69 @@
+name: BongoCat macOS Artifacts
+
+# 手动触发：推到你的 fork 后，在 Actions 页选择本 workflow -> Run workflow。
+# 仅构建 macOS app/dmg 并上传为 Artifact；不发布 Release、不依赖仓库 Secrets。
+# macOS 包默认未签名（本地开发跑或右键打开即可），未配置 notarization。
+on:
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 本机为 Apple Silicon，主产出 aarch64；Intel Mac 需要时放开下行并选用 x64 runner
+          - target: aarch64-apple-darwin
+          # - target: x86_64-apple-darwin
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm 10+ 需要 Node >= 22.13（依赖 node:sqlite）
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # 固定 pnpm 大版本，避免 latest 漂移
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Install Rust target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: target
+
+      - name: Install front-end dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 图标未入库（.gitignore），构建前需先生成
+      - name: Generate app icons
+        run: pnpm build:icon
+
+      - name: Build macOS app
+        shell: bash
+        run: |
+          # 仓库启用了 updater，需关闭 updater 产物避免要求签名私钥；
+          # JSON 写入文件再以路径传入，避免 shell 引号转义问题
+          echo '{"bundle":{"createUpdaterArtifacts":false}}' > "$RUNNER_TEMP/ci-config.json"
+          pnpm tauri build --target ${{ matrix.target }} --bundles app,dmg --config "$RUNNER_TEMP/ci-config.json"
+
+      # 打包 .app（保留权限/符号链接），方便免安装直接运行
+      - name: Archive .app bundle
+        shell: bash
+        run: |
+          ditto -c -k --keepParent "target/${{ matrix.target }}/release/bundle/macos/BongoCat.app" \
+            "BongoCat-${{ matrix.target }}.app.zip"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: BongoCat-${{ matrix.target }}
+          path: |
+            BongoCat-${{ matrix.target }}.app.zip
+            target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+          if-no-files-found: error
